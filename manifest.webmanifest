@@ -1,6 +1,6 @@
 {
-  "name": "Maintenance Caméras",
-  "short_name": "Maintenance",
+  "name": "EntrApps",
+  "short_name": "EntrApps",
   "description": "Appli des techniciens : caméras, sites CD77 / Mennecy, tâches.",
   "lang": "fr",
   "start_url": "./",
