@@ -33,6 +33,15 @@
    href="https://script.google.com/macros/s/AKfycbyPQ-Ohiuro0xr3a-uYSgRrZCzu0YYm861jikJoDxG6rWQnLAwlH7Q_Ff-Y5ELv5WHpvQ/exec">Page blanche ? Ouvrir dans Chrome ↗</a>
 <script>
   setTimeout(function () { document.getElementById('aide').className = 'cache'; }, 8000);
+  // Navigation interne : l'appli demande (postMessage) d'ouvrir une page dans ce cadre
+  // au lieu de quitter l'appli installée pour une page web.
+  var APPLI = 'https://script.google.com/macros/s/AKfycbyPQ-Ohiuro0xr3a-uYSgRrZCzu0YYm861jikJoDxG6rWQnLAwlH7Q_Ff-Y5ELv5WHpvQ/';
+  window.addEventListener('message', function (e) {
+    var u = e.data && e.data.appliAller, h = '';
+    try { h = new URL(e.origin).hostname; } catch (err) {}
+    if (typeof u !== 'string' || !/\.googleusercontent\.com$/.test(h) || u.indexOf(APPLI) !== 0) return;
+    document.getElementById('app').src = u;
+  });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
 </script>
 </body>
