@@ -87,6 +87,17 @@
     if (typeof u !== 'string' || !/\.googleusercontent\.com$/.test(h) || u.indexOf(APPLI) !== 0) return;
     document.getElementById('app').src = u;
   });
+  // Jeton d'accès de l'appli gardé ici : sur iPhone, Safari efface la mémoire du cadre Google à chaque ouverture.
+  // L'appli le demande à l'ouverture ; la 1re fois, on garde le jeton qu'elle propose. Seuls les cadres Google sont écoutés.
+  window.addEventListener('message', function (e) {
+    var h = '';
+    try { h = new URL(e.origin).hostname; } catch (err) {}
+    if (!/\.googleusercontent\.com$/.test(h) || !e.data || e.data.entrappsJeton !== 'demande') return;
+    var t = String(e.data.tok || ''), g = '';
+    try { g = localStorage.getItem('entrapps_jeton') || ''; } catch (err) {}
+    if (!/^[0-9a-f]{16,64}$/.test(g)) { g = /^[0-9a-f]{16,64}$/.test(t) ? t : ''; try { if (g) localStorage.setItem('entrapps_jeton', g); } catch (err) {} }
+    if (e.source) e.source.postMessage({ entrappsJeton: 'reponse', tok: g }, e.origin);
+  });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
 </script>
 </body>
