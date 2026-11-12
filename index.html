@@ -97,6 +97,8 @@
     var t = String(e.data.tok || ''), g = '';
     try { g = localStorage.getItem('entrapps_jeton') || ''; } catch (err) {}
     if (!/^[0-9a-f]{16,64}$/.test(g)) { g = /^[0-9a-f]{16,64}$/.test(t) ? t : ''; try { if (g) localStorage.setItem('entrapps_jeton', g); } catch (err) {} }
+    // diagnostic : 6 premiers caractères du jeton de cet appareil, visibles dans OneSignal (étiquette tok)
+    OneSignalDeferred.push(function (OneSignal) { try { OneSignal.User.addTag('tok', g.slice(0, 6)); } catch (e4) {} });
     if (e.source) e.source.postMessage({ entrappsJeton: 'reponse', tok: g }, e.origin);
   });
   // Notifications push par téléphone : l'appli indique (panneau admin, case « Reçoit les notifications ») si ce téléphone
