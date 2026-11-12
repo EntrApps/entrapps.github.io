@@ -115,9 +115,12 @@
           await new Promise(function (r) { setTimeout(r, 500); });
         }
         if (!abo || typeof abo.optedIn !== 'boolean') return;
-        if (voulu === 'off') { if (abo.optedIn) await abo.optOut(); }
-        else if (!abo.optedIn && OneSignal.Notifications.permission) await abo.optIn();
-      } catch (err) {}
+        var avant = abo.optedIn;
+        if (voulu === 'off') await abo.optOut();
+        else if (OneSignal.Notifications.permission) await abo.optIn();
+        // trace de diagnostic (étiquette OneSignal visible côté serveur)
+        try { OneSignal.User.addTag('push_msg', voulu + ' ' + new Date().toISOString().slice(11, 19) + ' avant=' + avant + ' apres=' + abo.optedIn + ' perm=' + OneSignal.Notifications.permission); } catch (e2) {}
+      } catch (err) { try { OneSignal.User.addTag('push_err', String(err && err.message || err).slice(0, 90)); } catch (e3) {} }
     });
   });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
