@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- EntrApps : coquille v38.1 (jeton d'accès gardé pour les iPhone) -->
+<!-- EntrApps : coquille v42 (jeton d'accès gardé pour les iPhone + push coupé / rétabli par téléphone) -->
 <html lang="fr">
 <head>
 <meta charset="utf-8">
@@ -98,6 +98,27 @@
     try { g = localStorage.getItem('entrapps_jeton') || ''; } catch (err) {}
     if (!/^[0-9a-f]{16,64}$/.test(g)) { g = /^[0-9a-f]{16,64}$/.test(t) ? t : ''; try { if (g) localStorage.setItem('entrapps_jeton', g); } catch (err) {} }
     if (e.source) e.source.postMessage({ entrappsJeton: 'reponse', tok: g }, e.origin);
+  });
+  // Notifications push par téléphone : l'appli indique (panneau admin, case « Reçoit les notifications ») si ce téléphone
+  // doit en recevoir. 'off' = désabonnement push de cet appareil ; 'on' = réabonnement (seulement si l'autorisation est déjà donnée).
+  window.addEventListener('message', function (e) {
+    var h = '';
+    try { h = new URL(e.origin).hostname; } catch (err) {}
+    if (!/\.googleusercontent\.com$/.test(h) || !e.data || (e.data.entrappsPush !== 'on' && e.data.entrappsPush !== 'off')) return;
+    var voulu = e.data.entrappsPush;
+    OneSignalDeferred.push(async function (OneSignal) {
+      try {
+        var abo = null;
+        for (var i = 0; i < 12; i++) {   // attend la fin de l'initialisation de OneSignal
+          abo = OneSignal.User && OneSignal.User.PushSubscription;
+          if (abo && typeof abo.optedIn === 'boolean') break;
+          await new Promise(function (r) { setTimeout(r, 500); });
+        }
+        if (!abo || typeof abo.optedIn !== 'boolean') return;
+        if (voulu === 'off') { if (abo.optedIn) await abo.optOut(); }
+        else if (!abo.optedIn && OneSignal.Notifications.permission) await abo.optIn();
+      } catch (err) {}
+    });
   });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
 </script>
