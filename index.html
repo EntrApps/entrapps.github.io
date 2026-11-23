@@ -15,7 +15,9 @@
 <style>
   html, body { margin: 0; height: 100%; background: #f1f3f4; overflow: hidden; font-family: Arial, Helvetica, sans-serif; }
   /* L'appli existante (Google Apps Script) est affichée telle quelle, en plein écran */
-  #app { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }
+  #app, iframe.cadre { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #0b1d4d; }
+  /* v79.2 : une page par cadre, gardée ouverte en arrière-plan -> passage d'une page à l'autre instantané */
+  iframe.masque { visibility: hidden; pointer-events: none; z-index: -1; }
   #aide { position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(32,33,36,.85); color: #fff; font-size: 13px;
           padding: 7px 12px; border-radius: 16px; text-decoration: none; transition: opacity .6s; }
   #aide.cache { opacity: 0; pointer-events: none; }
@@ -86,7 +88,56 @@
     var u = e.data && e.data.appliAller, h = '';
     try { h = new URL(e.origin).hostname; } catch (err) {}
     if (typeof u !== 'string' || !/\.googleusercontent\.com$/.test(h) || u.indexOf(APPLI) !== 0) return;
-    document.getElementById('app').src = u;
+    aller(u, !!e.data.recharger);
+  });
+  // v79.2 : chaque page de l'appli a son propre cadre, gardé ouvert. Revenir sur une page = simple affichage (instantané) ;
+  // la page relit ses données en fond (message appliVisible). L'accueil demande le préchargement des pages autorisées.
+  var F0 = document.getElementById('app'), CADRES = {}, ACTIF = '', PROF = 0;
+  function cle(u) { try { return new URL(u).searchParams.get('page') || ''; } catch (e) { return ''; } }
+  function sansAncre(u) { return String(u).split('#')[0]; }
+  function envoyer(w, msg) { try { for (var i = 0; i < w.frames.length; i++) { w.frames[i].postMessage(msg, '*'); envoyer(w.frames[i], msg); } } catch (e) {} }
+  function creer(u, cache) {
+    var f = document.createElement('iframe');
+    f.className = 'cadre' + (cache ? ' masque' : ''); f.setAttribute('allow', F0.getAttribute('allow')); f.title = 'EntrApps'; f.src = u;
+    document.body.insertBefore(f, F0.nextSibling);
+    return f;
+  }
+  function montrer(k) {
+    if (CADRES[ACTIF] && ACTIF !== k) envoyer(CADRES[ACTIF].f.contentWindow, { appliCache: 1 });
+    for (var c in CADRES) CADRES[c].f.classList.toggle('masque', c !== k);
+    ACTIF = k;
+  }
+  function aller(u, recharger, depuisHisto) {
+    var k = cle(u), c = CADRES[k];
+    if (!c) c = CADRES[k] = { f: creer(u, false), u: u };
+    else if (recharger || sansAncre(c.u) !== sansAncre(u)) { c.f.src = u; c.u = u; }
+    else envoyer(c.f.contentWindow, { appliVisible: 1 });
+    montrer(k);
+    if (depuisHisto) return;
+    if (k === '') { if (PROF > 0) { var p = PROF; PROF = 0; history.go(-p); } }   // retour à l'accueil : le bouton Retour du téléphone quitte ensuite l'appli
+    else { PROF++; history.pushState({ k: k, u: u, p: PROF }, ''); }
+  }
+  CADRES[cle(F0.src)] = { f: F0, u: F0.src }; ACTIF = cle(F0.src);
+  history.replaceState({ k: ACTIF, u: F0.src, p: 0 }, '');
+  window.addEventListener('popstate', function (e) {
+    var s = e.state || { k: '', u: F0.src.split('?')[0], p: 0 };
+    PROF = s.p || 0;
+    aller(CADRES[s.k] ? CADRES[s.k].u : s.u, false, true);
+  });
+  // préchargement demandé par l'accueil : une page après l'autre, cachées
+  window.addEventListener('message', function (e) {
+    var h = '';
+    try { h = new URL(e.origin).hostname; } catch (err) {}
+    var l = e.data && e.data.appliPrecharger;
+    if (!/\.googleusercontent\.com$/.test(h) || !Array.isArray(l)) return;
+    l = l.filter(function (u) { return typeof u === 'string' && u.indexOf(APPLI) === 0 && !CADRES[cle(u)]; }).slice(0, 6);
+    (function suivant() {
+      var u = l.shift(); if (!u) return;
+      if (CADRES[cle(u)]) { suivant(); return; }
+      var c = CADRES[cle(u)] = { f: creer(u, true), u: u }, fait = false;
+      function fin() { if (fait) return; fait = true; setTimeout(suivant, 2000); }
+      c.f.addEventListener('load', fin); setTimeout(fin, 12000);
+    })();
   });
   // Jeton d'accès de l'appli gardé ici : sur iPhone, Safari efface la mémoire du cadre Google à chaque ouverture.
   // L'appli le demande à l'ouverture ; la 1re fois, on garde le jeton qu'elle propose. Seuls les cadres Google sont écoutés.
